@@ -520,6 +520,10 @@ const GOOGLE_FORM_ENTRIES = {
   status: "entry.1211627211",
   tasks: "entry.987196006"
 };
+const EXPECTED_HOST = "koroglu1990.github.io";
+function sourceIsTrusted() {
+  return location.hostname === EXPECTED_HOST;
+}
 function reportFields() {
   const total = PARTS.length;
   let solvedCount = 0, totalChallenges = 0;
@@ -528,7 +532,10 @@ function reportFields() {
     (p.challenges2||[]).forEach((_, i) => { totalChallenges++; if (state.solved[`${p.id}:b${i}`]) solvedCount++; });
   });
   const finished = state.current === total - 1 && isPartComplete(PARTS[total-1]);
-  const status = finished ? "практикум пройден полностью" : `дошёл до части ${state.current + 1} из ${total}`;
+  let status = finished ? "практикум пройден полностью" : `дошёл до части ${state.current + 1} из ${total}`;
+  if (!sourceIsTrusted()) {
+    status = `⚠ ИЗМЕНЁННАЯ КОПИЯ (открыто с ${location.hostname || "локального файла"}) — ` + status;
+  }
   return { name: state.student.name, group: state.student.group, status, tasks: `${solvedCount} из ${totalChallenges}` };
 }
 function submitToGoogleForm() {
@@ -839,4 +846,3 @@ render();
 </script>
 </body>
 </html>
-
