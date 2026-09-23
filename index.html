@@ -316,14 +316,12 @@ const PARTS = [
       filename: "requirements.txt",
       why: "Python не устанавливает библиотеки сам по себе. Этот файл — список того, что нужно поставить, чтобы сервис вообще смог запуститься: без Flask нечем будет обрабатывать запросы, без gunicorn нечем будет запускать сервис в продакшене, без pytest не на чем будет гонять автотесты.",
       code: `flask==3.0.3\ngunicorn==22.0.0\npytest==8.2.0`,
-      displayCode: `# Flask — фреймворк, на котором работает сам сервис (обрабатывает запросы)\nflask==3.0.3\n# gunicorn — "боевой" сервер для запуска Flask в продакшене (не python app.py)\ngunicorn==22.0.0\n# pytest — библиотека для автотестов, проверяет код без участия человека\npytest==8.2.0`,
       note: "Три строки — название пакета и версия через ==."
     },
     {
       filename: "app.py",
       why: "Это сердце сервиса. Он поднимает веб-сервер и отвечает на два адреса: главную страницу (просто для людей) и /health — именно по этому адресу позже будет стучаться автоматический мониторинг, чтобы проверять, жив ли сервис.",
       code: `from flask import Flask, jsonify\nimport os\n\napp = Flask(__name__)\n\n@app.route("/")\ndef home():\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n@app.route("/health")\ndef health():\n    return jsonify(status="ok", service="ithub-service"), 200\n\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
-      displayCode: `# Flask — создаёт веб-сервер; jsonify — превращает ответ в JSON\nfrom flask import Flask, jsonify\nimport os\n\n# Создаём сам сервис\napp = Flask(__name__)\n\n# Адрес "/" — главная страница, просто приветствие для человека\n@app.route("/")\ndef home():\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n# Адрес "/health" — сюда будет стучаться мониторинг, чтобы проверить: сервис жив?\n@app.route("/health")\ndef health():\n    return jsonify(status="ok", service="ithub-service"), 200\n\n# Запуск сервера. PORT берём из окружения — Render сам скажет, какой порт использовать\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
       note: "Внимательно с отступами — в Python 4 пробела на уровень вложенности."
     }
   ],
@@ -342,7 +340,6 @@ const PARTS = [
       filename: "app.py (с логами)",
       why: "Сейчас сервис ничего не рассказывает о том, что внутри происходит. Логи — это записи о событиях с указанием времени и результата: когда что-то сломается, именно по ним вы поймёте, что случилось и когда — вместо того чтобы гадать.",
       code: `from flask import Flask, jsonify\nimport os\nimport logging\n\napp = Flask(__name__)\nlogging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")\nlogger = logging.getLogger("ithub-service")\n\n@app.route("/")\ndef home():\n    logger.info("action=home_page result=ok")\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n@app.route("/health")\ndef health():\n    logger.info("action=health_check result=ok")\n    return jsonify(status="ok", service="ithub-service"), 200\n\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
-      displayCode: `from flask import Flask, jsonify\nimport os\n# logging — встроенный модуль Python для записи событий\nimport logging\n\napp = Flask(__name__)\n# Настраиваем формат: время + уровень важности + сам текст сообщения\nlogging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")\nlogger = logging.getLogger("ithub-service")\n\n@app.route("/")\ndef home():\n    # Записываем в лог: кто-то зашёл на главную, всё в порядке\n    logger.info("action=home_page result=ok")\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n@app.route("/health")\ndef health():\n    # Записываем в лог каждую проверку здоровья — потом будет видно историю\n    logger.info("action=health_check result=ok")\n    return jsonify(status="ok", service="ithub-service"), 200\n\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
       note: "Добавились import logging, настройка logging.basicConfig и две строки logger.info внутри функций."
     }
   ],
@@ -359,7 +356,6 @@ const PARTS = [
       filename: "test_app.py",
       why: "Автотест — это код, который проверяет другой код без участия человека. Он «понарошку» стучится в /health и сверяет ответ с ожидаемым. Это и есть тот самый Quality Gate: пока тест не проходит, вы точно знаете — что-то не так, ещё до того как это увидят пользователи.",
       code: `from app import app\n\ndef test_health_check():\n    client = app.test_client()\n    response = client.get("/health")\n    assert response.status_code == 200\n    assert response.get_json()["status"] == "ok"`,
-      displayCode: `# Импортируем наш сервис из app.py, чтобы его протестировать\nfrom app import app\n\ndef test_health_check():\n    # test_client создаёт "ненастоящего" пользователя для проверки\n    client = app.test_client()\n    # Делаем запрос на /health, как будто мы — мониторинг\n    response = client.get("/health")\n    # Проверка 1: сервис должен ответить кодом 200 (всё хорошо)\n    assert response.status_code == 200\n    # Проверка 2: в ответе должен быть статус "ok"\n    assert response.get_json()["status"] == "ok"`,
       note: "Импорт app из app.py, одна тестовая функция с тремя проверками (assert)."
     }
   ],
@@ -376,7 +372,6 @@ const PARTS = [
       filename: ".github/workflows/ci.yml",
       why: "Это инструкция для GitHub: что делать при каждом пуше. Без неё тест из прошлой части пришлось бы запускать руками каждый раз, забывая об этом в самый неподходящий момент. С этим файлом GitHub сам скачивает код, ставит Python и зависимости, и гоняет тесты — автоматически.",
       code: `name: CI\n\non:\n  push:\n    branches: [ "main" ]\n  pull_request:\n    branches: [ "main" ]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Python\n        uses: actions/setup-python@v5\n        with:\n          python-version: "3.11"\n      - name: Install dependencies\n        run: pip install -r requirements.txt\n      - name: Run tests\n        run: pytest`,
-      displayCode: `# Имя пайплайна — отображается на вкладке Actions\nname: CI\n\n# Когда запускать: при пуше и при pull request в ветку main\non:\n  push:\n    branches: [ "main" ]\n  pull_request:\n    branches: [ "main" ]\n\njobs:\n  test:\n    # На какой машине выполнять — чистый Ubuntu\n    runs-on: ubuntu-latest\n    steps:\n      # Шаг 1: скачать код репозитория\n      - uses: actions/checkout@v4\n      # Шаг 2: поставить Python нужной версии\n      - name: Set up Python\n        uses: actions/setup-python@v5\n        with:\n          python-version: "3.11"\n      # Шаг 3: установить библиотеки из requirements.txt\n      - name: Install dependencies\n        run: pip install -r requirements.txt\n      # Шаг 4: запустить автотесты\n      - name: Run tests\n        run: pytest`,
       note: "YAML чувствителен к отступам — считайте пробелы внимательно (обычно 2)."
     }
   ],
@@ -423,7 +418,6 @@ const PARTS = [
       filename: "app.py — фрагмент (ломаем)",
       why: "Чтобы понять, как выглядит и ощущается настоящий сбой, проще всего устроить его самим — контролируемо и осознанно. Меняем /health так, чтобы он врал: отвечал ошибкой вместо \"всё хорошо\".",
       code: `@app.route("/health")\ndef health():\n    logger.error("action=health_check result=fail reason=simulated_incident")\n    return jsonify(status="error", service="ithub-service"), 500`,
-      displayCode: `@app.route("/health")\ndef health():\n    # logger.error — уровень серьёзнее info, сюда попадают настоящие проблемы\n    logger.error("action=health_check result=fail reason=simulated_incident")\n    # 500 — код ошибки "на сервере что-то сломалось"\n    return jsonify(status="error", service="ithub-service"), 500`,
       note: "Статус меняется на 500, лог теперь logger.error вместо logger.info."
     }
   ],
@@ -439,7 +433,6 @@ const PARTS = [
       filename: "app.py — фрагмент (чиним)",
       why: "Дежурный редко пишет решение с нуля — чаще нужно откатить то, что сломалось, к последней рабочей версии. Возвращаем ровно тот код, что был до поломки.",
       code: `@app.route("/health")\ndef health():\n    logger.info("action=health_check result=ok")\n    return jsonify(status="ok", service="ithub-service"), 200`,
-      displayCode: `@app.route("/health")\ndef health():\n    # Возвращаем обычный info — снова просто рабочая проверка, ничего страшного\n    logger.info("action=health_check result=ok")\n    # 200 — код "всё хорошо"\n    return jsonify(status="ok", service="ithub-service"), 200`,
       note: "Возвращаем 200 и logger.info, как было в Части 3."
     }
   ],
@@ -676,7 +669,13 @@ function checkChallenge(partId, idx) {
   const ta = document.getElementById(`ta-${partId}-${idx}`);
   const msg = document.getElementById(`msg-${partId}-${idx}`);
   const ch = getChallenge(partId, idx);
-  const typed = normalize(ta.value);
+  let typedRaw = ta.value;
+  if (ch.displayCode) {
+    // в показанном коде есть учебные #-комментарии — если студент случайно переписал и их,
+    // не наказываем за это: убираем строки, которые целиком являются комментарием
+    typedRaw = typedRaw.split("\n").filter(line => !/^\s*#/.test(line)).join("\n");
+  }
+  const typed = normalize(typedRaw);
   const target = normalize(ch.code);
   if (typed === target) {
     state.solved[`${partId}:${idx}`] = true;
@@ -719,6 +718,7 @@ function renderChallenge(part, ch, idx, keySuffix) {
       <span class="codebox-label">${escapeHtml(ch.filename)}</span>
       <div class="codebox" oncopy="return FREE_MODE" oncontextmenu="return FREE_MODE" onselectstart="return FREE_MODE" ondragstart="return FREE_MODE">${escapeHtml(shownCode)}</div>
       ${ch.note ? `<p style="font-size:12px;color:var(--text-dim);margin-top:6px;">💡 ${escapeHtml(ch.note)}</p>` : ""}
+      ${ch.displayCode ? `<p style="font-size:12px;color:var(--warn-text);margin-top:4px;">⚠ Строки с # выше — это пояснения, не переписывайте их. Внизу нужен только сам код, без комментариев.</p>` : ""}
       <textarea id="${taId}" placeholder="Впишите код сюда вручную (без комментариев — как в чистом файле)..." onpaste="return FREE_MODE" ondrop="return FREE_MODE" oncontextmenu="return FREE_MODE" ${solved ? "readonly" : ""}>${solved ? escapeHtml(ch.code) : ""}</textarea>
       <div class="row2">
         ${solved
@@ -857,3 +857,4 @@ render();
 </script>
 </body>
 </html>
+
