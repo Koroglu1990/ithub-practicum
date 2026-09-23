@@ -164,11 +164,6 @@
     background: var(--brand-light); border-radius: 8px; padding: 9px 13px; margin: 0 0 4px 0;
     font-size: 12.5px; color: var(--text);
   }
-  .free-mode-banner {
-    background: var(--warn-bg); color: var(--warn-text); text-align: center; font-size: 11.5px;
-    font-weight: 700; padding: 6px; border-bottom: 1px solid var(--warn-border);
-  }
-
   .nav-row { display:flex; justify-content: space-between; align-items:center; margin-top: 10px; gap: 10px; }
   .nav-btn {
     background: var(--brand-teal); color:#fff; border:none; border-radius: 9px; padding: 12px 20px;
@@ -237,8 +232,6 @@
 
   ::selection { background: transparent; }
   textarea::selection, input::selection, p::selection, li::selection { background: #b7d9e8; }
-  .free-mode, .free-mode * { -webkit-user-select: text !important; user-select: text !important; }
-  .free-mode .codebox::after { display: none; }
 </style>
 </head>
 <body>
@@ -267,14 +260,6 @@
 
 <script>
 /* ============================ ДАННЫЕ ЧАСТЕЙ ============================ */
-const FREE_MODE = new URLSearchParams(location.search).get("mode") === "free";
-if (FREE_MODE) {
-  document.body.classList.add("free-mode");
-  const banner = document.createElement("div");
-  banner.className = "free-mode-banner";
-  banner.textContent = "⚠ Режим для преподавателя: защита от копирования отключена (?mode=free в ссылке). Студентам давайте ссылку без этого параметра.";
-  document.body.insertBefore(banner, document.body.firstChild);
-}
 const PARTS = [
 {
   id: 0, tag: "Старт", title: "Что мы строим",
@@ -716,10 +701,10 @@ function renderChallenge(part, ch, idx, keySuffix) {
     <div class="challenge">
       ${ch.why ? `<p class="why-box">🎯 ${escapeHtml(ch.why)}</p>` : ""}
       <span class="codebox-label">${escapeHtml(ch.filename)}</span>
-      <div class="codebox" oncopy="return FREE_MODE" oncontextmenu="return FREE_MODE" onselectstart="return FREE_MODE" ondragstart="return FREE_MODE">${escapeHtml(shownCode)}</div>
+      <div class="codebox" oncopy="return false" oncontextmenu="return false" onselectstart="return false" ondragstart="return false">${escapeHtml(shownCode)}</div>
       ${ch.note ? `<p style="font-size:12px;color:var(--text-dim);margin-top:6px;">💡 ${escapeHtml(ch.note)}</p>` : ""}
       ${ch.displayCode ? `<p style="font-size:12px;color:var(--warn-text);margin-top:4px;">⚠ Строки с # выше — это пояснения, не переписывайте их. Внизу нужен только сам код, без комментариев.</p>` : ""}
-      <textarea id="${taId}" placeholder="Впишите код сюда вручную (без комментариев — как в чистом файле)..." onpaste="return FREE_MODE" ondrop="return FREE_MODE" oncontextmenu="return FREE_MODE" ${solved ? "readonly" : ""}>${solved ? escapeHtml(ch.code) : ""}</textarea>
+      <textarea id="${taId}" placeholder="Впишите код сюда вручную (без комментариев — как в чистом файле)..." onpaste="return false" ondrop="return false" oncontextmenu="return false" ${solved ? "readonly" : ""}>${solved ? escapeHtml(ch.code) : ""}</textarea>
       <div class="row2">
         ${solved
           ? `<span class="done-badge">✓ Сделано</span>`
@@ -827,20 +812,17 @@ function goTo(i) {
 
 /* ============================ ЗАЩИТА ОТ КОПИРОВАНИЯ ============================ */
 document.addEventListener("copy", function(e) {
-  if (FREE_MODE) return;
   const sel = window.getSelection().toString();
   const active = document.activeElement;
   if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) return; // в полях ввода копировать можно
   e.preventDefault();
 });
 document.addEventListener("contextmenu", function(e) {
-  if (FREE_MODE) return;
   const active = document.activeElement;
   if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) return;
   e.preventDefault();
 });
 document.addEventListener("keydown", function(e) {
-  if (FREE_MODE) return;
   const active = document.activeElement;
   const inField = active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT");
   const key = e.key.toLowerCase();
