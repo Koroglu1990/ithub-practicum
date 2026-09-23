@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Практикум: сервис ITHUB</title>
+<style>
+  :root {
+    --bg: #f4f7f8;
+    --panel: #ffffff;
+    --text: #202832;
+    --text-dim: #5b6772;
+    --border: #dfe6ea;
+    --brand-dark: #0f3d5c;
+    --brand: #0f5c6e;
+    --brand-teal: #0f8a8a;
+    --brand-light: #eaf4fb;
+    --ok-bg: #eaf7ee;
+    --ok-border: #2f9e56;
+    --ok-text: #1f6e3b;
+    --warn-bg: #fff7e6;
+    --warn-border: #d1a13a;
+    --warn-text: #8a6516;
+    --err-bg: #fdeeea;
+    --err-border: #d9532c;
+    --err-text: #b8401d;
+    --code-bg: #1e2733;
+    --code-text: #d7e3ea;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10151a;
+      --panel: #171f26;
+      --text: #e7edf1;
+      --text-dim: #9fb0ba;
+      --border: #2a343c;
+      --brand-light: #17313f;
+      --code-bg: #0d1319;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151a;
+    --panel: #171f26;
+    --text: #e7edf1;
+    --text-dim: #9fb0ba;
+    --border: #2a343c;
+    --brand-light: #17313f;
+    --code-bg: #0d1319;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "DejaVu Sans", sans-serif;
+    line-height: 1.55;
+    -webkit-user-select: none; user-select: none; /* блокируем выделение везде по умолчанию */
+  }
+  /* но в текстовых полях студент должен свободно печатать */
+  textarea, input { -webkit-user-select: text; user-select: text; }
+  p, li, .selectable { -webkit-user-select: text; user-select: text; } /* обычный текст пусть выделяется — это не код */
+
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    background: linear-gradient(180deg, var(--brand-dark), var(--brand));
+    color: #fff; padding: 14px 20px calc(14px + env(safe-area-inset-top, 0px)) 20px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  }
+  .topbar .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
+  .topbar .sub { font-size: 11.5px; opacity: 0.8; margin-top: 2px; }
+  .progress-wrap { max-width: 720px; margin: 10px auto 0 auto; }
+  .progress-track { background: rgba(255,255,255,0.18); border-radius: 20px; height: 7px; overflow: hidden; }
+  .progress-fill { background: #7fe0d6; height: 100%; border-radius: 20px; transition: width .3s ease; }
+  .progress-label { font-size: 10.5px; opacity: 0.85; margin-top: 5px; display:flex; justify-content: space-between; }
+
+  .wrap { max-width: 720px; margin: 0 auto; padding: 18px 16px 60px 16px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 18px; margin-bottom: 16px;
+  }
+  .tag {
+    display:inline-block; background: var(--brand-light); color: var(--brand);
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 20px; margin-bottom: 8px;
+  }
+  h2 { font-size: 19px; color: var(--brand-dark); margin: 0 0 10px 0; }
+  h3 { font-size: 14.5px; color: var(--brand-dark); margin: 16px 0 6px 0; }
+  p { margin: 0 0 10px 0; color: var(--text); }
+  ul, ol { margin: 0 0 10px 0; padding-left: 20px; }
+  li { margin-bottom: 5px; }
+  b { color: var(--brand-dark); }
+  :root[data-theme="dark"] b, @media (prefers-color-scheme: dark) { }
+  .btn-tag {
+    display:inline-block; background: var(--brand-light); border: 1px solid var(--border);
+    color: var(--brand); border-radius: 5px; padding: 1px 7px; font-size: 12.5px; font-weight: 700;
+  }
+  .kbd {
+    display:inline-block; background: #2a333d; color: #e8eef2; border-radius: 5px;
+    padding: 1px 7px; font-family: "SFMono-Regular", Menlo, monospace; font-size: 12px;
+  }
+
+  .callout { border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 13.5px; }
+  .callout .ct { font-weight: 700; display:block; margin-bottom: 3px; }
+  .callout.info { background: var(--brand-light); border-left: 4px solid var(--brand); }
+  .callout.info .ct { color: var(--brand); }
+  .callout.warn { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+  .callout.warn .ct { color: var(--warn-text); }
+  .callout.ok { background: var(--ok-bg); border-left: 4px solid var(--ok-border); }
+  .callout.ok .ct { color: var(--ok-text); }
+
+  .step { display: flex; margin-bottom: 12px; gap: 10px; }
+  .step .num {
+    background: var(--brand-teal); color: #fff; min-width: 24px; height: 24px; border-radius: 50%;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size: 12px; flex-shrink:0;
+  }
+  .step .txt { padding-top: 2px; }
+
+  /* --- защищённый блок кода (не выделяется, копирование блокируется) --- */
+  .codebox-label {
+    display:inline-block; background: var(--brand-dark); color:#dff3f1; font-family: Menlo, monospace;
+    font-size: 11px; padding: 4px 10px; border-radius: 5px 5px 0 0; margin: 10px 0 -6px 0;
+  }
+  .codebox {
+    background: var(--code-bg); color: var(--code-text); font-family: "SFMono-Regular", Menlo, monospace;
+    font-size: 12px; border-radius: 8px; padding: 12px 14px; margin: 6px 0 4px 0;
+    white-space: pre; overflow-x: auto; line-height: 1.5;
+    -webkit-user-select: none !important; user-select: none !important;
+    position: relative;
+  }
+  .codebox::after {
+    content: "🔒 нельзя скопировать — впишите ниже сами";
+    display: block; font-size: 10px; opacity: 0.55; margin-top: 8px; user-select: none;
+  }
+
+  .challenge {
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 14px 0; background: var(--bg);
+  }
+  .challenge textarea {
+    width: 100%; min-height: 120px; font-family: "SFMono-Regular", Menlo, monospace; font-size: 12.5px;
+    border-radius: 8px; border: 1.5px solid var(--border); background: var(--panel); color: var(--text);
+    padding: 10px; resize: vertical; line-height: 1.5; tab-size: 4;
+  }
+  .challenge textarea:focus { outline: none; border-color: var(--brand-teal); }
+  .challenge .row2 { display:flex; gap:8px; align-items:center; margin-top: 8px; flex-wrap: wrap; }
+  .check-btn {
+    background: var(--brand); color:#fff; border:none; border-radius: 7px; padding: 8px 16px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .check-btn:hover { background: var(--brand-dark); }
+  .result-msg { font-size: 12.5px; font-weight: 600; }
+  .result-msg.ok { color: var(--ok-text); }
+  .result-msg.err { color: var(--err-text); }
+  .done-badge {
+    display:inline-block; background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-border);
+    border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; margin-left: 6px;
+  }
+
+  .nav-row { display:flex; justify-content: space-between; align-items:center; margin-top: 10px; gap: 10px; }
+  .nav-btn {
+    background: var(--brand-teal); color:#fff; border:none; border-radius: 9px; padding: 12px 20px;
+    font-size: 14px; font-weight: 700; cursor: pointer; flex: 1;
+  }
+  .nav-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+  .nav-btn.secondary { background: transparent; color: var(--brand); border: 1.5px solid var(--border); flex: 0 0 auto; }
+
+  .toc { display: grid; gap: 6px; margin: 14px 0; }
+  .toc-item {
+    display:flex; align-items:center; gap: 10px; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); cursor: pointer; background: var(--panel);
+  }
+  .toc-item.current { border-color: var(--brand-teal); background: var(--brand-light); }
+  .toc-item.locked { opacity: 0.5; cursor: not-allowed; }
+  .toc-num {
+    min-width: 22px; height: 22px; border-radius: 50%; background: var(--border); color: var(--text-dim);
+    display:flex; align-items:center; justify-content:center; font-size: 11px; font-weight: 700; flex-shrink:0;
+  }
+  .toc-item.current .toc-num { background: var(--brand-teal); color: #fff; }
+  .toc-item.complete .toc-num { background: var(--ok-border); color: #fff; }
+  .toc-title { font-size: 13px; }
+
+  footer.pagefoot { text-align:center; color: var(--text-dim); font-size: 11px; padding: 10px 0 30px 0; }
+
+  .reset-link { color: var(--text-dim); font-size: 11px; text-decoration: underline; cursor: pointer; background:none; border:none; padding: 0; }
+
+  /* --- вход по имени --- */
+  .gate { max-width: 420px; margin: 60px auto; padding: 0 16px; }
+  .gate .card { text-align: center; }
+  .gate input {
+    width: 100%; padding: 11px 13px; margin: 8px 0; border-radius: 8px;
+    border: 1.5px solid var(--border); background: var(--panel); color: var(--text); font-size: 14px;
+  }
+  .gate input:focus { outline: none; border-color: var(--brand-teal); }
+  .gate-btn {
+    width: 100%; background: var(--brand-teal); color:#fff; border:none; border-radius: 9px;
+    padding: 13px; font-size: 14.5px; font-weight: 700; cursor: pointer; margin-top: 8px;
+  }
+  .gate-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+  .gate-err { color: var(--err-text); font-size: 12px; margin-top: 6px; min-height: 16px; }
+
+  /* --- отчёт для преподавателя --- */
+  .report-box {
+    background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 12px 14px;
+    font-family: "SFMono-Regular", Menlo, monospace; font-size: 12px; white-space: pre-wrap;
+    -webkit-user-select: text; user-select: text; margin: 10px 0;
+  }
+  .copy-btn {
+    background: var(--brand-dark); color:#fff; border:none; border-radius: 8px; padding: 10px 18px;
+    font-size: 13.5px; font-weight: 700; cursor: pointer; margin-top: 8px;
+  }
+  .copy-btn.copied { background: var(--ok-border); }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(10,15,20,0.55); z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-card {
+    background: var(--panel); border-radius: 12px; padding: 20px; max-width: 460px; width: 100%;
+    max-height: 85vh; overflow-y: auto;
+  }
+  .modal-close {
+    float: right; background: none; border: none; font-size: 18px; color: var(--text-dim); cursor: pointer;
+  }
+
+  ::selection { background: transparent; }
+  textarea::selection, input::selection, p::selection, li::selection { background: #b7d9e8; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="row">
+    <div>
+      <h1>Практикум: сервис ITHUB</h1>
+      <div class="sub" id="subLabel">От идеи до продакшена — пишите код сами</div>
+    </div>
+    <div style="text-align:right;">
+      <div id="studentLabel" style="font-size:11.5px; color:#dff3f1; margin-bottom:3px;"></div>
+      <button class="reset-link" onclick="toggleReportModal(true)" style="color:#dff3f1; margin-right:10px;">Отчёт о прогрессе</button>
+      <button class="reset-link" onclick="resetProgress()" style="color:#dff3f1;">Сбросить прогресс</button>
+    </div>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label"><span id="progressText">Часть 1 из 11</span><span id="progressPct">0%</span></div>
+  </div>
+</div>
+
+<div class="wrap" id="app"></div>
+
+<footer class="pagefoot">Код в тёмных блоках нельзя выделить и скопировать — его нужно перепечатать в поле ниже, чтобы двигаться дальше.</footer>
+
+<script>
+/* ============================ ДАННЫЕ ЧАСТЕЙ ============================ */
+const PARTS = [
+{
+  id: 0, tag: "Старт", title: "Что мы строим",
+  html: `
+    <p>Вы соберёте маленький настоящий веб-сервис колледжа ITHUB: код на GitHub,
+    автотест, автоматическую сборку (CI/CD), реальный адрес в интернете (продакшен)
+    и мониторинг, который следит, жив ли сервис. Потом вы сами «сломаете» его и почините —
+    как настоящий инцидент.</p>
+    <div class="step"><div class="num">1</div><div class="txt">Ничего не нужно ставить на компьютер — всё в браузере.</div></div>
+    <div class="step"><div class="num">2</div><div class="txt">Все нужные сервисы (GitHub, Render, UptimeRobot) бесплатны на базовом уровне.</div></div>
+    <div class="step"><div class="num">3</div><div class="txt">Код в тёмных блоках нельзя скопировать — вы будете перепечатывать его сами в поле ниже, чтобы открыть следующий шаг.</div></div>
+    <div class="callout info"><span class="ct">Зачем печатать руками</span>
+      Когда вы сами набираете код по буквам, мозг замечает структуру, отступы и
+      синтаксис — то, что при копипасте проскакивает мимо внимания. Это медленнее,
+      но именно так материал закрепляется.</div>
+  `,
+  challenges: []
+},
+{
+  id: 1, tag: "Часть 1", title: "Аккаунт, репозиторий, рабочая среда",
+  html: `
+    <div class="step"><div class="num">1</div><div class="txt"><b>Заведите аккаунт на GitHub</b> (github.com → Sign up), если его ещё нет.</div></div>
+    <div class="step"><div class="num">2</div><div class="txt"><b>Создайте репозиторий:</b> кнопка <span class="btn-tag">New</span> → имя <span class="kbd">ithub-service</span> → выбрать <b>Public</b> → включить <b>Add a README file</b> → <span class="btn-tag">Create repository</span>.</div></div>
+    <div class="step"><div class="num">3</div><div class="txt"><b>Откройте Codespaces:</b> на странице репозитория — <span class="btn-tag">Code</span> → вкладка <b>Codespaces</b> → <span class="btn-tag">Create codespace on main</span>. Подождите, пока откроется редактор кода с терминалом внизу.</div></div>
+    <div class="callout ok"><span class="ct">Проверка</span>
+      Если видите список файлов слева и чёрный терминал внизу со строкой вида
+      <span class="kbd">@you ➜ /workspaces/ithub-service $</span> — всё готово.</div>
+  `,
+  challenges: []
+},
+{
+  id: 2, tag: "Часть 2", title: "Пишем первую версию сервиса",
+  html: `
+    <p>Создайте в Codespace файл <span class="kbd">requirements.txt</span> — посмотрите на его содержимое
+    ниже и перепечатайте его в поле, слово в слово, со всеми переносами строк.</p>
+  `,
+  challenges: [
+    {
+      filename: "requirements.txt",
+      code: `flask==3.0.3\ngunicorn==22.0.0\npytest==8.2.0`,
+      note: "Три строки — название пакета и версия через ==."
+    },
+    {
+      filename: "app.py",
+      code: `from flask import Flask, jsonify\nimport os\n\napp = Flask(__name__)\n\n@app.route("/")\ndef home():\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n@app.route("/health")\ndef health():\n    return jsonify(status="ok", service="ithub-service"), 200\n\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
+      note: "Внимательно с отступами — в Python 4 пробела на уровень вложенности."
+    }
+  ],
+  after: `
+    <h3>После того как оба файла набраны в Codespace</h3>
+    <div class="step"><div class="num">3</div><div class="txt">В терминале: <span class="kbd">pip install -r requirements.txt</span></div></div>
+    <div class="step"><div class="num">4</div><div class="txt">Запустите: <span class="kbd">python app.py</span> — должно появиться <span class="kbd">Running on http://0.0.0.0:5000</span></div></div>
+    <div class="step"><div class="num">5</div><div class="txt">Вкладка <b>PORTS</b> внизу → порт 5000 → значок глобуса «Open in Browser». Проверьте главную страницу и <span class="kbd">/health</span>.</div></div>
+  `
+},
+{
+  id: 3, tag: "Часть 3", title: "Логи — основа наблюдаемости",
+  html: `<p>Замените содержимое <span class="kbd">app.py</span> на версию с логами — перепечатайте её целиком.</p>`,
+  challenges: [
+    {
+      filename: "app.py (с логами)",
+      code: `from flask import Flask, jsonify\nimport os\nimport logging\n\napp = Flask(__name__)\nlogging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")\nlogger = logging.getLogger("ithub-service")\n\n@app.route("/")\ndef home():\n    logger.info("action=home_page result=ok")\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n@app.route("/health")\ndef health():\n    logger.info("action=health_check result=ok")\n    return jsonify(status="ok", service="ithub-service"), 200\n\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
+      note: "Добавились import logging, настройка logging.basicConfig и две строки logger.info внутри функций."
+    }
+  ],
+  after: `
+    <div class="step"><div class="num">2</div><div class="txt">Перезапустите: <span class="kbd">Ctrl+C</span>, затем снова <span class="kbd">python app.py</span>.</div></div>
+    <div class="step"><div class="num">3</div><div class="txt">Обновите страницу <span class="kbd">/health</span> пару раз и посмотрите в терминал — там появятся строки лога с временем и результатом.</div></div>
+  `
+},
+{
+  id: 4, tag: "Часть 4", title: "Автотест — Quality Gate",
+  html: `<p>Создайте файл <span class="kbd">test_app.py</span> рядом с <span class="kbd">app.py</span> и перепечатайте тест.</p>`,
+  challenges: [
+    {
+      filename: "test_app.py",
+      code: `from app import app\n\ndef test_health_check():\n    client = app.test_client()\n    response = client.get("/health")\n    assert response.status_code == 200\n    assert response.get_json()["status"] == "ok"`,
+      note: "Импорт app из app.py, одна тестовая функция с тремя проверками (assert)."
+    }
+  ],
+  after: `
+    <div class="step"><div class="num">2</div><div class="txt">Остановите сервис (<span class="kbd">Ctrl+C</span>), если он запущен.</div></div>
+    <div class="step"><div class="num">3</div><div class="txt">В терминале: <span class="kbd">pytest</span> — должно появиться <span class="kbd">1 passed</span> зелёным.</div></div>
+  `
+},
+{
+  id: 5, tag: "Часть 5", title: "CI/CD — GitHub Actions",
+  html: `<p>Создайте файл по пути <span class="kbd">.github/workflows/ci.yml</span> (редактор сам создаст нужные папки) и перепечатайте конфигурацию.</p>`,
+  challenges: [
+    {
+      filename: ".github/workflows/ci.yml",
+      code: `name: CI\n\non:\n  push:\n    branches: [ "main" ]\n  pull_request:\n    branches: [ "main" ]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Python\n        uses: actions/setup-python@v5\n        with:\n          python-version: "3.11"\n      - name: Install dependencies\n        run: pip install -r requirements.txt\n      - name: Run tests\n        run: pytest`,
+      note: "YAML чувствителен к отступам — считайте пробелы внимательно (обычно 2)."
+    }
+  ],
+  after: `
+    <div class="step"><div class="num">2</div><div class="txt">В терминале по очереди: <span class="kbd">git add .</span> → <span class="kbd">git commit -m "Первая версия"</span> → <span class="kbd">git push</span>.</div></div>
+    <div class="step"><div class="num">3</div><div class="txt">На github.com откройте репозиторий → вкладка <b>Actions</b>. Дождитесь зелёной галочки.</div></div>
+  `
+},
+{
+  id: 6, tag: "Часть 6", title: "Продакшен — выкатываем в интернет (Render)",
+  html: `
+    <div class="step"><div class="num">1</div><div class="txt">На <span class="kbd">render.com</span> — <span class="btn-tag">Sign up with GitHub</span> → <span class="btn-tag">Authorize Render</span>.</div></div>
+    <div class="step"><div class="num">2</div><div class="txt"><span class="btn-tag">New</span> → <span class="btn-tag">Web Service</span> → выбрать репозиторий <b>ithub-service</b> → <span class="btn-tag">Connect</span>.</div></div>
+    <div class="step"><div class="num">3</div><div class="txt">Впишите команды сборки и запуска — наберите их сами в поля ниже, чтобы запомнить точный синтаксис.</div></div>
+  `,
+  challenges: [
+    { filename: "Build Command", code: `pip install -r requirements.txt`, note: "Та же команда, что вы вводили в терминале." },
+    { filename: "Start Command", code: `gunicorn --bind 0.0.0.0:$PORT app:app`, note: "gunicorn запускает Flask-приложение app из файла app.py в проде." }
+  ],
+  after: `
+    <div class="step"><div class="num">4</div><div class="txt">Выберите бесплатный план (<b>Free</b>) → <span class="btn-tag">Create Web Service</span>.</div></div>
+    <div class="step"><div class="num">5</div><div class="txt">Дождитесь статуса <b>Live</b> (2–4 минуты), откройте свой адрес вида <span class="kbd">https://ithub-service-XXXX.onrender.com</span> и проверьте <span class="kbd">/health</span>.</div></div>
+    <div class="callout warn"><span class="ct">Не забудьте</span>Сохраните свой продакшен-адрес — он понадобится в следующей части.</div>
+  `
+},
+{
+  id: 7, tag: "Часть 7", title: "Мониторинг — UptimeRobot",
+  html: `
+    <div class="step"><div class="num">1</div><div class="txt">На <span class="kbd">uptimerobot.com</span> — <span class="btn-tag">Sign Up Free</span>, подтвердите почту.</div></div>
+    <div class="step"><div class="num">2</div><div class="txt"><span class="btn-tag">+ Add New Monitor</span> → тип <b>HTTP(s)</b> → имя <span class="kbd">ITHUB service health</span> → в URL вставьте ваш адрес с Render + <span class="kbd">/health</span> → <span class="btn-tag">Create Monitor</span>.</div></div>
+    <div class="step"><div class="num">3</div><div class="txt">Убедитесь, что статус монитора зелёный — <b>Up</b>.</div></div>
+    <div class="callout ok"><span class="ct">Проверка</span>Теперь работает вся цепочка: код → тест → CI → продакшен → мониторинг.</div>
+  `,
+  challenges: []
+},
+{
+  id: 8, tag: "Часть 8", title: "Симулируем инцидент",
+  html: `
+    <div class="callout warn"><span class="ct">Важно</span>Это учебная поломка, которую вы сразу чините сами. В реальной работе так специально ломать прод нельзя.</div>
+    <p>Замените функцию <span class="kbd">health()</span> в <span class="kbd">app.py</span> на «сломанную» версию.</p>
+  `,
+  challenges: [
+    {
+      filename: "app.py — фрагмент (ломаем)",
+      code: `@app.route("/health")\ndef health():\n    logger.error("action=health_check result=fail reason=simulated_incident")\n    return jsonify(status="error", service="ithub-service"), 500`,
+      note: "Статус меняется на 500, лог теперь logger.error вместо logger.info."
+    }
+  ],
+  after: `
+    <div class="step"><div class="num">2</div><div class="txt"><span class="kbd">git add .</span> → <span class="kbd">git commit -m "Симуляция инцидента"</span> → <span class="kbd">git push</span>.</div></div>
+    <div class="step"><div class="num">3</div><div class="txt">На вкладке Actions тест теперь красный — ожидался 200, а получен 500.</div></div>
+    <div class="step"><div class="num">4</div><div class="txt">Дождитесь передеплоя на Render (2–3 минуты) и алерта от UptimeRobot на почту («Monitor is DOWN», обычно в течение 5–10 минут).</div></div>
+    <div class="step"><div class="num">5</div><div class="txt">Посмотрите логи в Render (вкладка <b>Logs</b>) — найдите строку с <span class="kbd">result=fail</span>.</div></div>
+    <div class="step"><div class="num">6</div><div class="txt">Теперь почините: верните <span class="kbd">health()</span> прежнюю версию из Части 3 (со статусом 200), наберите её ниже, чтобы закрепить.</div></div>
+  `,
+  challenges2: [
+    {
+      filename: "app.py — фрагмент (чиним)",
+      code: `@app.route("/health")\ndef health():\n    logger.info("action=health_check result=ok")\n    return jsonify(status="ok", service="ithub-service"), 200`,
+      note: "Возвращаем 200 и logger.info, как было в Части 3."
+    }
+  ],
+  after2: `
+    <div class="step"><div class="num">7</div><div class="txt"><span class="kbd">git add .</span> → <span class="kbd">git commit -m "Чиним /health"</span> → <span class="kbd">git push</span>.</div></div>
+    <div class="step"><div class="num">8</div><div class="txt">Дождитесь зелёного теста, передеплоя и статуса <b>Up</b> в UptimeRobot.</div></div>
+  `
+},
+{
+  id: 9, tag: "Часть 9", title: "Runbook и постмортем",
+  html: `<p>Создайте <span class="kbd">RUNBOOK.md</span> в корне проекта и перепечатайте шаблон.</p>`,
+  challenges: [
+    {
+      filename: "RUNBOOK.md",
+      code: `# Runbook: ithub-service\n\n## Что проверить первым делом при алерте "Monitor is DOWN"\n1. Открыть панель Render → вкладка Logs\n2. Найти последние строки с level=ERROR\n3. Проверить, отвечает ли https://.../health вручную в браузере\n\n## Частые причины\n- Сервис "заснул" на бесплатном тарифе Render (подождать до 1 минуты)\n- Ошибка в последнем коммите (проверить вкладку Actions на GitHub)`,
+      note: "Markdown-файл: заголовки через #, списки через - и цифры."
+    },
+    {
+      filename: "POSTMORTEM.md",
+      code: `# Постмортем: инцидент с /health (учебный)\n\n## Что произошло\n/health начал возвращать 500 вместо 200 после коммита.\n\n## Как обнаружили\nUptimeRobot прислал алерт "Monitor is DOWN".\n\n## Причина\nНамеренное учебное изменение кода.\n\n## Что помогло починить\nОткат изменения в app.py и повторный деплой.`,
+      note: "Опишите свой реальный инцидент своими словами по этой структуре, когда будете вставлять в свой репозиторий."
+    }
+  ],
+  after: `<div class="step"><div class="num">3</div><div class="txt">Сохраните оба файла и отправьте: <span class="kbd">git add .</span> → <span class="kbd">git commit -m "Документация"</span> → <span class="kbd">git push</span>.</div></div>`
+},
+{
+  id: 10, tag: "Финал", title: "Итог",
+  html: `
+    <p>Теперь у вас есть: репозиторий с рабочим кодом, автотест, CI-пайплайн, реальный продакшен-адрес,
+    мониторинг с алертами, структурированные логи, опыт разбора инцидента и документация (runbook + постмортем).</p>
+    <div class="callout ok"><span class="ct">Готово</span>Такой репозиторий с настроенным CI/CD и деплоем можно прикладывать к резюме при отклике на стажировку.</div>
+    <h3>Что можно докрутить самостоятельно</h3>
+    <ul>
+      <li>Добавить ещё один эндпоинт и тест на него</li>
+      <li>Настроить деплой на Render только после успешного прохождения тестов</li>
+      <li>Посмотреть историю проверок и время простоя в UptimeRobot</li>
+    </ul>
+  `,
+  challenges: []
+}
+];
+
+/* ============================ СОСТОЯНИЕ ============================ */
+const STORAGE_KEY = "ithub-lab-progress-v1";
+let state = { current: 0, solved: {}, student: null, autoSubmitted: false };
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state = JSON.parse(raw);
+  } catch (e) { /* нет доступа к storage — работаем в памяти */ }
+}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function resetProgress() {
+  if (!confirm("Сбросить весь прогресс? Имя и группу нужно будет ввести заново.")) return;
+  state = { current: 0, solved: {}, student: null, autoSubmitted: false };
+  saveState();
+  render();
+}
+
+/* ============================ ВХОД ПО ИМЕНИ ============================ */
+function renderGate(err) {
+  const app = document.getElementById("app");
+  document.getElementById("studentLabel").textContent = "";
+  app.innerHTML = `
+    <div class="gate">
+      <div class="card">
+        <h2 style="margin-top:0;">Прежде чем начать</h2>
+        <p>Введите имя и группу — они попадут в итоговый отчёт, который вы в конце пришлёте преподавателю.</p>
+        <input id="gateName" type="text" placeholder="Имя и фамилия" autocomplete="off">
+        <input id="gateGroup" type="text" placeholder="Группа" autocomplete="off">
+        <button class="gate-btn" onclick="submitGate()">Начать практикум</button>
+        <div class="gate-err">${err || ""}</div>
+      </div>
+    </div>
+  `;
+  document.getElementById("gateName").focus();
+}
+function submitGate() {
+  const name = document.getElementById("gateName").value.trim();
+  const group = document.getElementById("gateGroup").value.trim();
+  if (!name || !group) {
+    renderGate("Заполните оба поля, пожалуйста.");
+    return;
+  }
+  state.student = { name, group };
+  saveState();
+  render();
+}
+
+/* ============================ ОТПРАВКА В GOOGLE ФОРМУ ============================ */
+const GOOGLE_FORM_ACTION = "https://docs.google.com/forms/d/e/1FAIpQLSd2CMjr7rYzqNam4XHGy3hs-j-9HFUrM7TrMo3hmWO4_pWCGw/formResponse";
+const GOOGLE_FORM_ENTRIES = {
+  name: "entry.1786741701",
+  group: "entry.1563573898",
+  status: "entry.1211627211",
+  tasks: "entry.987196006"
+};
+function reportFields() {
+  const total = PARTS.length;
+  let solvedCount = 0, totalChallenges = 0;
+  PARTS.forEach(p => {
+    (p.challenges||[]).forEach((_, i) => { totalChallenges++; if (state.solved[`${p.id}:${i}`]) solvedCount++; });
+    (p.challenges2||[]).forEach((_, i) => { totalChallenges++; if (state.solved[`${p.id}:b${i}`]) solvedCount++; });
+  });
+  const finished = state.current === total - 1 && isPartComplete(PARTS[total-1]);
+  const status = finished ? "практикум пройден полностью" : `дошёл до части ${state.current + 1} из ${total}`;
+  return { name: state.student.name, group: state.student.group, status, tasks: `${solvedCount} из ${totalChallenges}` };
+}
+function submitToGoogleForm() {
+  if (!state.student) return;
+  const fields = reportFields();
+  const iframeName = "gform-submit-frame";
+  let iframe = document.getElementById(iframeName);
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.name = iframeName;
+    iframe.id = iframeName;
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+  }
+  const form = document.createElement("form");
+  form.action = GOOGLE_FORM_ACTION;
+  form.method = "POST";
+  form.target = iframeName;
+  form.style.display = "none";
+  Object.keys(GOOGLE_FORM_ENTRIES).forEach(key => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = GOOGLE_FORM_ENTRIES[key];
+    input.value = fields[key];
+    form.appendChild(input);
+  });
+  document.body.appendChild(form);
+  form.submit();
+  setTimeout(() => form.remove(), 1500);
+}
+function sendReport(btnId) {
+  submitToGoogleForm();
+  const btn = document.getElementById(btnId);
+  if (btn) {
+    btn.textContent = "✓ Отправлено преподавателю";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Отправить преподавателю"; btn.classList.remove("copied"); }, 3000);
+  }
+}
+
+/* ============================ ОТЧЁТ (ТЕКСТ, РЕЗЕРВНЫЙ СПОСОБ) ============================ */
+function buildReport() {
+  const f = reportFields();
+  const dt = new Date();
+  const dtStr = dt.toLocaleString("ru-RU");
+  return `Отчёт о выполнении практикума «Сервис ITHUB»
+Студент: ${f.name}
+Группа: ${f.group}
+Дата: ${dtStr}
+Статус: ${f.status}
+Заданий с кодом решено: ${f.tasks}`;
+}
+function copyReport(btnId) {
+  const text = buildReport();
+  const btn = document.getElementById(btnId || "copyReportBtn");
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = "✓ Скопировано";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Скопировать отчёт"; btn.classList.remove("copied"); }, 2500);
+  }).catch(() => {
+    btn.textContent = "Не получилось — выделите текст выше вручную";
+  });
+}
+
+let reportModalOpen = false;
+function toggleReportModal(open) {
+  if (!state.student) return;
+  reportModalOpen = open;
+  renderReportModal();
+}
+function renderReportModal() {
+  let existing = document.getElementById("reportModal");
+  if (existing) existing.remove();
+  if (!reportModalOpen) return;
+  const div = document.createElement("div");
+  div.id = "reportModal";
+  div.className = "modal-overlay";
+  div.onclick = (e) => { if (e.target === div) toggleReportModal(false); };
+  div.innerHTML = `
+    <div class="modal-card">
+      <button class="modal-close" onclick="toggleReportModal(false)">✕</button>
+      <h3 style="margin-top:0;">Отчёт о прогрессе на сейчас</h3>
+      <p style="font-size:12.5px;">Можно отправить преподавателю в любой момент, даже если практикум ещё не пройден до конца.</p>
+      <div class="report-box selectable">${escapeHtml(buildReport())}</div>
+      <button class="copy-btn" id="sendReportBtnModal" onclick="sendReport('sendReportBtnModal')">Отправить преподавателю</button>
+      <button class="copy-btn" id="copyReportBtnModal" onclick="copyReport('copyReportBtnModal')" style="background:transparent;color:var(--brand);border:1.5px solid var(--border);">Скопировать текстом (запасной способ)</button>
+    </div>
+  `;
+  document.body.appendChild(div);
+}
+
+/* ============================ ПРОВЕРКА КОДА ============================ */
+function normalize(s) {
+  return s
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map(line => line.replace(/[ \t]+$/g, "")) // trailing пробелы каждой строки
+    .join("\n")
+    .replace(/^\n+|\n+$/g, ""); // пустые строки в начале/конце
+}
+function getChallenge(partId, idx) {
+  const part = PARTS.find(p => p.id === partId);
+  if (typeof idx === "string" && idx.startsWith("b")) {
+    return part.challenges2[parseInt(idx.slice(1), 10)];
+  }
+  return part.challenges[idx];
+}
+function checkChallenge(partId, idx) {
+  const ta = document.getElementById(`ta-${partId}-${idx}`);
+  const msg = document.getElementById(`msg-${partId}-${idx}`);
+  const ch = getChallenge(partId, idx);
+  const typed = normalize(ta.value);
+  const target = normalize(ch.code);
+  if (typed === target) {
+    state.solved[`${partId}:${idx}`] = true;
+    saveState();
+    msg.className = "result-msg ok";
+    msg.textContent = "✓ Совпадает! Можно двигаться дальше.";
+    render();
+  } else {
+    const typedLines = typed.split("\n");
+    const targetLines = target.split("\n");
+    let diffLine = -1;
+    for (let i = 0; i < Math.max(typedLines.length, targetLines.length); i++) {
+      if (typedLines[i] !== targetLines[i]) { diffLine = i + 1; break; }
+    }
+    msg.className = "result-msg err";
+    msg.textContent = diffLine > 0
+      ? `✗ Пока не совпадает. Проверьте строку ${diffLine} — сравните с образцом выше.`
+      : "✗ Пока не совпадает. Сравните внимательно с образцом выше.";
+  }
+}
+
+function isPartComplete(part) {
+  const chals = (part.challenges || []).length;
+  const chals2 = (part.challenges2 || []).length;
+  for (let i = 0; i < chals; i++) if (!state.solved[`${part.id}:${i}`]) return false;
+  for (let i = 0; i < chals2; i++) if (!state.solved[`${part.id}:b${i}`]) return false;
+  return true;
+}
+
+/* ============================ РЕНДЕР ============================ */
+function renderChallenge(part, ch, idx, keySuffix) {
+  const key = keySuffix !== undefined ? `${part.id}:b${idx}` : `${part.id}:${idx}`;
+  const taId = keySuffix !== undefined ? `ta-${part.id}-b${idx}` : `ta-${part.id}-${idx}`;
+  const msgId = keySuffix !== undefined ? `msg-${part.id}-b${idx}` : `msg-${part.id}-${idx}`;
+  const solved = !!state.solved[key];
+  return `
+    <div class="challenge">
+      <span class="codebox-label">${escapeHtml(ch.filename)}</span>
+      <div class="codebox" oncopy="return false" oncontextmenu="return false" onselectstart="return false" ondragstart="return false">${escapeHtml(ch.code)}</div>
+      ${ch.note ? `<p style="font-size:12px;color:var(--text-dim);margin-top:6px;">💡 ${escapeHtml(ch.note)}</p>` : ""}
+      <textarea id="${taId}" placeholder="Впишите код сюда вручную..." onpaste="return false" ondrop="return false" oncontextmenu="return false" ${solved ? "readonly" : ""}>${solved ? escapeHtml(ch.code) : ""}</textarea>
+      <div class="row2">
+        ${solved
+          ? `<span class="done-badge">✓ Сделано</span>`
+          : `<button class="check-btn" onclick="checkChallenge(${part.id}, ${keySuffix !== undefined ? `'b${idx}'` : idx})">Проверить</button>
+             <span class="result-msg" id="${msgId}"></span>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function render() {
+  if (!state.student) { renderGate(); return; }
+  document.getElementById("studentLabel").textContent = `${state.student.name} · ${state.student.group}`;
+  const part = PARTS[state.current];
+  const app = document.getElementById("app");
+  const total = PARTS.length;
+  const complete = isPartComplete(part);
+
+  let challengesHtml = "";
+  if (part.challenges && part.challenges.length) {
+    challengesHtml += part.challenges.map((ch, i) => renderChallenge(part, ch, i)).join("");
+  }
+  let afterHtml = part.after || "";
+  let challenges2Html = "";
+  if (part.challenges2 && part.challenges2.length) {
+    challenges2Html += part.challenges2.map((ch, i) => renderChallenge(part, ch, i, "b")).join("");
+  }
+  let after2Html = part.after2 || "";
+
+  const reportHtml = (part.id === 10) ? `
+    <h3>Отчёт для преподавателя</h3>
+    <p>Пришлите этот текст преподавателю (в чат, почту или куда он попросил) — это подтверждение, что практикум пройден.</p>
+    <div class="report-box selectable">${escapeHtml(buildReport())}</div>
+    <button class="copy-btn" id="sendReportBtn" onclick="sendReport('sendReportBtn')">Отправить преподавателю</button>
+    <button class="copy-btn" id="copyReportBtn" onclick="copyReport()" style="background:transparent;color:var(--brand);border:1.5px solid var(--border);">Скопировать текстом (запасной способ)</button>
+    <p style="font-size:11px;color:var(--text-dim);margin-top:8px;">Отчёт уже отправлен автоматически при переходе на эту страницу. Кнопка нужна, если хотите отправить ещё раз или что-то пошло не так.</p>
+  ` : "";
+
+  app.innerHTML = `
+    <div class="card">
+      <span class="tag">${escapeHtml(part.tag)}</span>
+      <h2>${escapeHtml(part.title)}</h2>
+      ${part.html}
+      ${challengesHtml}
+      ${afterHtml}
+      ${challenges2Html}
+      ${after2Html}
+      ${reportHtml}
+      <div class="nav-row">
+        <button class="nav-btn secondary" onclick="goPrev()" ${state.current === 0 ? "disabled" : ""}>← Назад</button>
+        <button class="nav-btn" onclick="goNext()" ${(!complete || state.current === total - 1) ? "disabled" : ""}>
+          ${state.current === total - 1 ? "Это финал" : (complete ? "Далее →" : "Впишите код выше, чтобы продолжить")}
+        </button>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">Содержание</h3>
+      <div class="toc">
+        ${PARTS.map((p, i) => {
+          const reachable = i <= state.current || isPartComplete(PARTS[i-1] || {challenges:[]});
+          const done = isPartComplete(p) && i < state.current;
+          const cls = i === state.current ? "current" : (done ? "complete" : (i > state.current && !allPriorComplete(i) ? "locked" : ""));
+          return `<div class="toc-item ${cls}" onclick="${(i <= state.current || allPriorComplete(i)) ? `goTo(${i})` : ''}">
+            <span class="toc-num">${done ? "✓" : i + 1}</span>
+            <span class="toc-title">${escapeHtml(p.title)}</span>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+  `;
+
+  document.getElementById("progressFill").style.width = `${Math.round((state.current / (total - 1)) * 100)}%`;
+  document.getElementById("progressText").textContent = `Часть ${state.current + 1} из ${total}`;
+  document.getElementById("progressPct").textContent = `${Math.round((state.current / (total - 1)) * 100)}%`;
+  window.scrollTo({top:0, behavior:"instant"});
+}
+
+function allPriorComplete(i) {
+  for (let k = 0; k < i; k++) if (!isPartComplete(PARTS[k])) return false;
+  return true;
+}
+function goNext() {
+  if (!isPartComplete(PARTS[state.current])) return;
+  if (state.current < PARTS.length - 1) {
+    state.current++;
+    if (state.current === PARTS.length - 1 && !state.autoSubmitted) {
+      submitToGoogleForm();
+      state.autoSubmitted = true;
+    }
+    saveState();
+    render();
+  }
+}
+function goPrev() {
+  if (state.current > 0) { state.current--; saveState(); render(); }
+}
+function goTo(i) {
+  if (i <= state.current || allPriorComplete(i)) { state.current = i; saveState(); render(); }
+}
+
+/* ============================ ЗАЩИТА ОТ КОПИРОВАНИЯ ============================ */
+document.addEventListener("copy", function(e) {
+  const sel = window.getSelection().toString();
+  const active = document.activeElement;
+  if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) return; // в полях ввода копировать можно
+  e.preventDefault();
+});
+document.addEventListener("contextmenu", function(e) {
+  const active = document.activeElement;
+  if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) return;
+  e.preventDefault();
+});
+document.addEventListener("keydown", function(e) {
+  const active = document.activeElement;
+  const inField = active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT");
+  const key = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && (key === "c" || key === "u") && !inField) {
+    e.preventDefault();
+  }
+  if ((e.ctrlKey || e.metaKey) && key === "s") { e.preventDefault(); }
+});
+
+/* ============================ СТАРТ ============================ */
+loadState();
+if (state.current >= PARTS.length) state.current = 0;
+render();
+</script>
+</body>
+</html>
