@@ -160,6 +160,14 @@
     display:inline-block; background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-border);
     border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; margin-left: 6px;
   }
+  .why-box {
+    background: var(--brand-light); border-radius: 8px; padding: 9px 13px; margin: 0 0 4px 0;
+    font-size: 12.5px; color: var(--text);
+  }
+  .free-mode-banner {
+    background: var(--warn-bg); color: var(--warn-text); text-align: center; font-size: 11.5px;
+    font-weight: 700; padding: 6px; border-bottom: 1px solid var(--warn-border);
+  }
 
   .nav-row { display:flex; justify-content: space-between; align-items:center; margin-top: 10px; gap: 10px; }
   .nav-btn {
@@ -229,6 +237,8 @@
 
   ::selection { background: transparent; }
   textarea::selection, input::selection, p::selection, li::selection { background: #b7d9e8; }
+  .free-mode, .free-mode * { -webkit-user-select: text !important; user-select: text !important; }
+  .free-mode .codebox::after { display: none; }
 </style>
 </head>
 <body>
@@ -257,6 +267,14 @@
 
 <script>
 /* ============================ ДАННЫЕ ЧАСТЕЙ ============================ */
+const FREE_MODE = new URLSearchParams(location.search).get("mode") === "free";
+if (FREE_MODE) {
+  document.body.classList.add("free-mode");
+  const banner = document.createElement("div");
+  banner.className = "free-mode-banner";
+  banner.textContent = "⚠ Режим для преподавателя: защита от копирования отключена (?mode=free в ссылке). Студентам давайте ссылку без этого параметра.";
+  document.body.insertBefore(banner, document.body.firstChild);
+}
 const PARTS = [
 {
   id: 0, tag: "Старт", title: "Что мы строим",
@@ -296,12 +314,16 @@ const PARTS = [
   challenges: [
     {
       filename: "requirements.txt",
+      why: "Python не устанавливает библиотеки сам по себе. Этот файл — список того, что нужно поставить, чтобы сервис вообще смог запуститься: без Flask нечем будет обрабатывать запросы, без gunicorn нечем будет запускать сервис в продакшене, без pytest не на чем будет гонять автотесты.",
       code: `flask==3.0.3\ngunicorn==22.0.0\npytest==8.2.0`,
+      displayCode: `# Flask — фреймворк, на котором работает сам сервис (обрабатывает запросы)\nflask==3.0.3\n# gunicorn — "боевой" сервер для запуска Flask в продакшене (не python app.py)\ngunicorn==22.0.0\n# pytest — библиотека для автотестов, проверяет код без участия человека\npytest==8.2.0`,
       note: "Три строки — название пакета и версия через ==."
     },
     {
       filename: "app.py",
+      why: "Это сердце сервиса. Он поднимает веб-сервер и отвечает на два адреса: главную страницу (просто для людей) и /health — именно по этому адресу позже будет стучаться автоматический мониторинг, чтобы проверять, жив ли сервис.",
       code: `from flask import Flask, jsonify\nimport os\n\napp = Flask(__name__)\n\n@app.route("/")\ndef home():\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n@app.route("/health")\ndef health():\n    return jsonify(status="ok", service="ithub-service"), 200\n\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
+      displayCode: `# Flask — создаёт веб-сервер; jsonify — превращает ответ в JSON\nfrom flask import Flask, jsonify\nimport os\n\n# Создаём сам сервис\napp = Flask(__name__)\n\n# Адрес "/" — главная страница, просто приветствие для человека\n@app.route("/")\ndef home():\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n# Адрес "/health" — сюда будет стучаться мониторинг, чтобы проверить: сервис жив?\n@app.route("/health")\ndef health():\n    return jsonify(status="ok", service="ithub-service"), 200\n\n# Запуск сервера. PORT берём из окружения — Render сам скажет, какой порт использовать\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
       note: "Внимательно с отступами — в Python 4 пробела на уровень вложенности."
     }
   ],
@@ -318,7 +340,9 @@ const PARTS = [
   challenges: [
     {
       filename: "app.py (с логами)",
+      why: "Сейчас сервис ничего не рассказывает о том, что внутри происходит. Логи — это записи о событиях с указанием времени и результата: когда что-то сломается, именно по ним вы поймёте, что случилось и когда — вместо того чтобы гадать.",
       code: `from flask import Flask, jsonify\nimport os\nimport logging\n\napp = Flask(__name__)\nlogging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")\nlogger = logging.getLogger("ithub-service")\n\n@app.route("/")\ndef home():\n    logger.info("action=home_page result=ok")\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n@app.route("/health")\ndef health():\n    logger.info("action=health_check result=ok")\n    return jsonify(status="ok", service="ithub-service"), 200\n\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
+      displayCode: `from flask import Flask, jsonify\nimport os\n# logging — встроенный модуль Python для записи событий\nimport logging\n\napp = Flask(__name__)\n# Настраиваем формат: время + уровень важности + сам текст сообщения\nlogging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")\nlogger = logging.getLogger("ithub-service")\n\n@app.route("/")\ndef home():\n    # Записываем в лог: кто-то зашёл на главную, всё в порядке\n    logger.info("action=home_page result=ok")\n    return "<h1>Сервис ITHUB работает!</h1><p>Загляните на /health</p>"\n\n@app.route("/health")\ndef health():\n    # Записываем в лог каждую проверку здоровья — потом будет видно историю\n    logger.info("action=health_check result=ok")\n    return jsonify(status="ok", service="ithub-service"), 200\n\nif __name__ == "__main__":\n    port = int(os.environ.get("PORT", 5000))\n    app.run(host="0.0.0.0", port=port)`,
       note: "Добавились import logging, настройка logging.basicConfig и две строки logger.info внутри функций."
     }
   ],
@@ -333,7 +357,9 @@ const PARTS = [
   challenges: [
     {
       filename: "test_app.py",
+      why: "Автотест — это код, который проверяет другой код без участия человека. Он «понарошку» стучится в /health и сверяет ответ с ожидаемым. Это и есть тот самый Quality Gate: пока тест не проходит, вы точно знаете — что-то не так, ещё до того как это увидят пользователи.",
       code: `from app import app\n\ndef test_health_check():\n    client = app.test_client()\n    response = client.get("/health")\n    assert response.status_code == 200\n    assert response.get_json()["status"] == "ok"`,
+      displayCode: `# Импортируем наш сервис из app.py, чтобы его протестировать\nfrom app import app\n\ndef test_health_check():\n    # test_client создаёт "ненастоящего" пользователя для проверки\n    client = app.test_client()\n    # Делаем запрос на /health, как будто мы — мониторинг\n    response = client.get("/health")\n    # Проверка 1: сервис должен ответить кодом 200 (всё хорошо)\n    assert response.status_code == 200\n    # Проверка 2: в ответе должен быть статус "ok"\n    assert response.get_json()["status"] == "ok"`,
       note: "Импорт app из app.py, одна тестовая функция с тремя проверками (assert)."
     }
   ],
@@ -348,7 +374,9 @@ const PARTS = [
   challenges: [
     {
       filename: ".github/workflows/ci.yml",
+      why: "Это инструкция для GitHub: что делать при каждом пуше. Без неё тест из прошлой части пришлось бы запускать руками каждый раз, забывая об этом в самый неподходящий момент. С этим файлом GitHub сам скачивает код, ставит Python и зависимости, и гоняет тесты — автоматически.",
       code: `name: CI\n\non:\n  push:\n    branches: [ "main" ]\n  pull_request:\n    branches: [ "main" ]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Python\n        uses: actions/setup-python@v5\n        with:\n          python-version: "3.11"\n      - name: Install dependencies\n        run: pip install -r requirements.txt\n      - name: Run tests\n        run: pytest`,
+      displayCode: `# Имя пайплайна — отображается на вкладке Actions\nname: CI\n\n# Когда запускать: при пуше и при pull request в ветку main\non:\n  push:\n    branches: [ "main" ]\n  pull_request:\n    branches: [ "main" ]\n\njobs:\n  test:\n    # На какой машине выполнять — чистый Ubuntu\n    runs-on: ubuntu-latest\n    steps:\n      # Шаг 1: скачать код репозитория\n      - uses: actions/checkout@v4\n      # Шаг 2: поставить Python нужной версии\n      - name: Set up Python\n        uses: actions/setup-python@v5\n        with:\n          python-version: "3.11"\n      # Шаг 3: установить библиотеки из requirements.txt\n      - name: Install dependencies\n        run: pip install -r requirements.txt\n      # Шаг 4: запустить автотесты\n      - name: Run tests\n        run: pytest`,
       note: "YAML чувствителен к отступам — считайте пробелы внимательно (обычно 2)."
     }
   ],
@@ -365,8 +393,8 @@ const PARTS = [
     <div class="step"><div class="num">3</div><div class="txt">Впишите команды сборки и запуска — наберите их сами в поля ниже, чтобы запомнить точный синтаксис.</div></div>
   `,
   challenges: [
-    { filename: "Build Command", code: `pip install -r requirements.txt`, note: "Та же команда, что вы вводили в терминале." },
-    { filename: "Start Command", code: `gunicorn --bind 0.0.0.0:$PORT app:app`, note: "gunicorn запускает Flask-приложение app из файла app.py в проде." }
+    { filename: "Build Command", why: "Render — это чужой компьютер в интернете. Он не знает, какие библиотеки нужны вашему сервису, пока вы явно не скажете — этой же командой, что вы вводили в своём Codespace.", code: `pip install -r requirements.txt`, note: "Та же команда, что вы вводили в терминале." },
+    { filename: "Start Command", why: "python app.py хорош для разработки, но не выдержит реальную нагрузку. gunicorn — это \"боевой\" сервер, который умеет обрабатывать много запросов одновременно, не падая при первом наплыве пользователей.", code: `gunicorn --bind 0.0.0.0:$PORT app:app`, note: "gunicorn запускает Flask-приложение app из файла app.py в проде." }
   ],
   after: `
     <div class="step"><div class="num">4</div><div class="txt">Выберите бесплатный план (<b>Free</b>) → <span class="btn-tag">Create Web Service</span>.</div></div>
@@ -393,7 +421,9 @@ const PARTS = [
   challenges: [
     {
       filename: "app.py — фрагмент (ломаем)",
+      why: "Чтобы понять, как выглядит и ощущается настоящий сбой, проще всего устроить его самим — контролируемо и осознанно. Меняем /health так, чтобы он врал: отвечал ошибкой вместо \"всё хорошо\".",
       code: `@app.route("/health")\ndef health():\n    logger.error("action=health_check result=fail reason=simulated_incident")\n    return jsonify(status="error", service="ithub-service"), 500`,
+      displayCode: `@app.route("/health")\ndef health():\n    # logger.error — уровень серьёзнее info, сюда попадают настоящие проблемы\n    logger.error("action=health_check result=fail reason=simulated_incident")\n    # 500 — код ошибки "на сервере что-то сломалось"\n    return jsonify(status="error", service="ithub-service"), 500`,
       note: "Статус меняется на 500, лог теперь logger.error вместо logger.info."
     }
   ],
@@ -407,7 +437,9 @@ const PARTS = [
   challenges2: [
     {
       filename: "app.py — фрагмент (чиним)",
+      why: "Дежурный редко пишет решение с нуля — чаще нужно откатить то, что сломалось, к последней рабочей версии. Возвращаем ровно тот код, что был до поломки.",
       code: `@app.route("/health")\ndef health():\n    logger.info("action=health_check result=ok")\n    return jsonify(status="ok", service="ithub-service"), 200`,
+      displayCode: `@app.route("/health")\ndef health():\n    # Возвращаем обычный info — снова просто рабочая проверка, ничего страшного\n    logger.info("action=health_check result=ok")\n    # 200 — код "всё хорошо"\n    return jsonify(status="ok", service="ithub-service"), 200`,
       note: "Возвращаем 200 и logger.info, как было в Части 3."
     }
   ],
@@ -422,11 +454,13 @@ const PARTS = [
   challenges: [
     {
       filename: "RUNBOOK.md",
+      why: "Runbook — это шпаргалка для дежурного на случай, когда думать некогда или тяжело (ночь, стресс, паника). Не нужно ничего вспоминать — просто читаешь и делаешь по шагам.",
       code: `# Runbook: ithub-service\n\n## Что проверить первым делом при алерте "Monitor is DOWN"\n1. Открыть панель Render → вкладка Logs\n2. Найти последние строки с level=ERROR\n3. Проверить, отвечает ли https://.../health вручную в браузере\n\n## Частые причины\n- Сервис "заснул" на бесплатном тарифе Render (подождать до 1 минуты)\n- Ошибка в последнем коммите (проверить вкладку Actions на GitHub)`,
       note: "Markdown-файл: заголовки через #, списки через - и цифры."
     },
     {
       filename: "POSTMORTEM.md",
+      why: "Постмортем фиксирует то, что узнала команда после сбоя, — чтобы не наступать на те же грабли снова и чтобы новый человек в команде мог прочитать историю проблемы, а не выслушивать пересказ на словах.",
       code: `# Постмортем: инцидент с /health (учебный)\n\n## Что произошло\n/health начал возвращать 500 вместо 200 после коммита.\n\n## Как обнаружили\nUptimeRobot прислал алерт "Monitor is DOWN".\n\n## Причина\nНамеренное учебное изменение кода.\n\n## Что помогло починить\nОткат изменения в app.py и повторный деплой.`,
       note: "Опишите свой реальный инцидент своими словами по этой структуре, когда будете вставлять в свой репозиторий."
     }
@@ -613,7 +647,21 @@ function normalize(s) {
   return s
     .replace(/\r\n/g, "\n")
     .split("\n")
-    .map(line => line.replace(/[ \t]+$/g, "")) // trailing пробелы каждой строки
+    .map(line => {
+      // сохраняем ведущие отступы как есть — в Python они значимы
+      const indentMatch = line.match(/^[ \t]*/);
+      const indent = indentMatch ? indentMatch[0] : "";
+      let body = line.slice(indent.length).replace(/[ \t]+$/g, ""); // тело строки без хвостовых пробелов
+      // остальные пробелы внутри строки не принципиальны для Python — не будем к ним придираться
+      body = body
+        .replace(/[ \t]+/g, " ")      // несколько пробелов/табов подряд -> один
+        .replace(/\s*\(\s*/g, "(")    // пробелы вокруг ( убираем
+        .replace(/\s*\)\s*/g, ")")    // пробелы вокруг ) убираем
+        .replace(/\s*,\s*/g, ", ")    // пробел после запятой — ровно один, перед — ноль
+        .replace(/\s*:\s*$/g, ":")    // пробел перед двоеточием в конце строки убираем
+        .replace(/\s*=\s*/g, "=");    // пробелы вокруг = убираем (кроме ==, но их это тоже не портит)
+      return indent + body;
+    })
     .join("\n")
     .replace(/^\n+|\n+$/g, ""); // пустые строки в начале/конце
 }
@@ -664,12 +712,14 @@ function renderChallenge(part, ch, idx, keySuffix) {
   const taId = keySuffix !== undefined ? `ta-${part.id}-b${idx}` : `ta-${part.id}-${idx}`;
   const msgId = keySuffix !== undefined ? `msg-${part.id}-b${idx}` : `msg-${part.id}-${idx}`;
   const solved = !!state.solved[key];
+  const shownCode = ch.displayCode || ch.code;
   return `
     <div class="challenge">
+      ${ch.why ? `<p class="why-box">🎯 ${escapeHtml(ch.why)}</p>` : ""}
       <span class="codebox-label">${escapeHtml(ch.filename)}</span>
-      <div class="codebox" oncopy="return false" oncontextmenu="return false" onselectstart="return false" ondragstart="return false">${escapeHtml(ch.code)}</div>
+      <div class="codebox" oncopy="return FREE_MODE" oncontextmenu="return FREE_MODE" onselectstart="return FREE_MODE" ondragstart="return FREE_MODE">${escapeHtml(shownCode)}</div>
       ${ch.note ? `<p style="font-size:12px;color:var(--text-dim);margin-top:6px;">💡 ${escapeHtml(ch.note)}</p>` : ""}
-      <textarea id="${taId}" placeholder="Впишите код сюда вручную..." onpaste="return false" ondrop="return false" oncontextmenu="return false" ${solved ? "readonly" : ""}>${solved ? escapeHtml(ch.code) : ""}</textarea>
+      <textarea id="${taId}" placeholder="Впишите код сюда вручную (без комментариев — как в чистом файле)..." onpaste="return FREE_MODE" ondrop="return FREE_MODE" oncontextmenu="return FREE_MODE" ${solved ? "readonly" : ""}>${solved ? escapeHtml(ch.code) : ""}</textarea>
       <div class="row2">
         ${solved
           ? `<span class="done-badge">✓ Сделано</span>`
@@ -777,17 +827,20 @@ function goTo(i) {
 
 /* ============================ ЗАЩИТА ОТ КОПИРОВАНИЯ ============================ */
 document.addEventListener("copy", function(e) {
+  if (FREE_MODE) return;
   const sel = window.getSelection().toString();
   const active = document.activeElement;
   if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) return; // в полях ввода копировать можно
   e.preventDefault();
 });
 document.addEventListener("contextmenu", function(e) {
+  if (FREE_MODE) return;
   const active = document.activeElement;
   if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) return;
   e.preventDefault();
 });
 document.addEventListener("keydown", function(e) {
+  if (FREE_MODE) return;
   const active = document.activeElement;
   const inField = active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT");
   const key = e.key.toLowerCase();
